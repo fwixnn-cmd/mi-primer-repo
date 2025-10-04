@@ -1,0 +1,94 @@
+
+# --------- CONFIGURACIÓN DE HOSTNAME ---------
+sudo hostname NUEVO_HOSTNAME
+sudo nano /etc/hostname
+sudo nano /etc/hosts
+sudo reboot
+
+# --------- CONFIGURACIÓN DE RED ---------
+# Ver interfaces
+ip addr
+
+# Usando /etc/network/interfaces con DHCP
+sudo nano /etc/network/interfaces
+auto enp0s3
+iface enp0s3 inet dhcp
+
+# Usando /etc/network/interfaces con IP estática
+auto enp0s3
+iface enp0s3 inet static
+    address 192.168.1.100
+    netmask 255.255.255.0
+    gateway 192.168.1.1
+    dns-nameservers 8.8.8.8 8.8.4.4
+
+# Reiniciar red
+sudo systemctl restart networking
+sudo service networking restart
+
+# DHCP temporal
+sudo dhclient enp0s3
+
+# IP estática temporal
+sudo ip addr add 192.168.1.100/24 dev enp0s3
+sudo ip route add default via 192.168.1.1
+sudo nano /etc/resolv.conf
+
+# systemd-networkd con DHCP
+sudo nano /etc/systemd/network/10-enp0s3.network
+[Match]
+Name=enp0s3
+[Network]
+DHCP=yes
+
+# systemd-networkd con IP estática
+[Match]
+Name=enp0s3
+[Network]
+Address=192.168.1.100/24
+Gateway=192.168.1.1
+DNS=8.8.8.8
+DNS=8.8.4.4
+
+sudo systemctl restart systemd-networkd
+
+# NetworkManager con nmcli
+sudo nmcli con add type ethernet ifname enp0s3 con-name dhcp-conn ipv4.method auto
+sudo nmcli con add type ethernet ifname enp0s3 con-name static-conn ipv4.method manual ipv4.addresses 192.168.1.100/24 ipv4.gateway 192.168.1.1 ipv4.dns "8.8.8.8 8.8.4.4"
+sudo nmcli con up static-conn
+
+# --------- GESTIÓN DE USUARIOS Y GRUPOS ---------
+# Crear usuario y darle sudo
+sudo adduser ian
+sudo usermod -aG sudo ian
+groups ian
+
+# Crear grupo guest y usuario visitante
+sudo groupadd guest
+sudo adduser visitante
+sudo usermod -aG guest visitante
+groups visitante
+
+# Eliminar usuario y grupo
+sudo deluser --remove-home visitante
+sudo groupdel guest
+
+# --------- MANEJO DE ARCHIVOS Y PERMISOS ---------
+# Crear carpeta y archivo con vi
+mkdir materia
+cd materia
+vi estudiante.txt
+
+# Permisos solo dueño
+chmod 700 estudiante.txt
+
+# Permisos solo grupo
+chmod 070 estudiante.txt
+
+# Copiar archivo a otra carpeta
+cd ..
+mkdir materia2
+cp materia/estudiante.txt materia2/
+
+# Eliminar carpeta materia con su archivo
+rm -r materia
