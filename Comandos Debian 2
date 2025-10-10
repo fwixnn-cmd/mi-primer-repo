@@ -1,0 +1,54 @@
+[comandos_practicas.txt](https://github.com/user-attachments/files/22858172/comandos_practicas.txt)
+# PRÁCTICA 1 - Bashtop y gestión de paquetes
+
+# Actualizar repositorios
+sudo apt update && sudo apt upgrade -y
+
+# Ver repositorios en uso
+cat /etc/apt/sources.list
+cat /etc/apt/sources.list.d/*.list
+
+# Buscar la herramienta Bashtop
+apt search bashtop
+
+# Instalar Bashtop
+sudo apt install bashtop -y
+
+# Ejecutar Bashtop
+bashtop
+
+# Desinstalar Bashtop y sus configuraciones
+sudo apt purge bashtop -y
+
+# Eliminar dependencias que ya no se usan
+sudo apt autoremove --purge -y
+
+
+# PRÁCTICA 2 - Tareas programadas (cron y at)
+
+# Editar el cron del superusuario
+sudo crontab -e
+
+# (Dentro del archivo agregar estas líneas)
+0 23 * * * apt update && apt upgrade -y
+0 3 * * 0 /sbin/reboot
+
+# Verificar cron guardado
+sudo crontab -l
+
+# Instalar y habilitar el servicio at
+sudo apt install at -y
+sudo systemctl start atd
+sudo systemctl enable atd
+
+# Mostrar contenido de /tmp antes
+ls /tmp
+
+# Crear tarea con 'at' para eliminar contenido de /tmp en 1 minuto
+echo "rm -rf /tmp/*" | at now + 1 minute
+
+# Ver tareas pendientes en 'at'
+atq
+
+# Mostrar contenido de /tmp después
+ls /tmp
