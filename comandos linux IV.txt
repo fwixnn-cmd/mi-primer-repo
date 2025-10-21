@@ -1,0 +1,118 @@
+======================
+PRACTICA 1: SERVIDOR WEB
+======================
+
+# Actualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar Apache
+sudo apt install apache2 -y
+
+# Crear website estático HTML con la frase "Hola Mundo"
+sudo mkdir -p /var/www/holamundo
+echo "<html><body><h1>Hola Mundo</h1></body></html>" | sudo tee /var/www/holamundo/index.html
+
+# Crear archivo de configuración del host virtual (puerto 80)
+sudo tee /etc/apache2/sites-available/holamundo.conf > /dev/null <<EOF
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/holamundo
+    ServerName holamundo.local
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+
+# Habilitar el sitio y reiniciar Apache
+sudo a2ensite holamundo.conf
+sudo systemctl reload apache2
+
+# Crear website estático HTML con nombre, matrícula y materia
+sudo mkdir -p /var/www/datos
+echo "<html><body><h1>Ian Tecnicx</h1><p>Matrícula: 2025-001</p><p>Materia: Redes</p></body></html>" | sudo tee /var/www/datos/index.html
+
+# Crear host virtual (puerto 8080)
+sudo tee /etc/apache2/sites-available/datos.conf > /dev/null <<EOF
+Listen 8080
+<VirtualHost *:8080>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/datos
+    ServerName datos.local
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+
+# Habilitar sitio y escuchar puerto 8080
+echo "Listen 8080" | sudo tee -a /etc/apache2/ports.conf
+sudo a2ensite datos.conf
+sudo systemctl reload apache2
+
+# Verificar que Apache esté activo
+sudo systemctl status apache2
+
+======================
+PRACTICA 2: SERVIDOR DE CORREO (POSTFIX)
+======================
+
+# Instalar Postfix
+sudo apt install postfix -y
+
+# Durante la instalación, elegir "Internet Site"
+# y usar el nombre del host o dominio.
+
+# Verificar que Postfix esté activo
+sudo systemctl status postfix
+
+# Enviar correo de prueba
+echo "Nombre: Ian Tecnicx | Matrícula: 2025-001" | mail -s "MambruSeFueALaGuerra" os3conadrian@gmail.com
+
+# Ver registros del envío
+sudo tail -f /var/log/mail.log
+
+======================
+PRACTICA 3: SERVIDOR DE IMPRESION (CUPS)
+======================
+
+# Instalar CUPS
+sudo apt install cups -y
+
+# Habilitar e iniciar el servicio
+sudo systemctl enable cups
+sudo systemctl start cups
+
+# Permitir acceso remoto
+sudo nano /etc/cups/cupsd.conf
+# (Agregar o editar las siguientes líneas dentro de los bloques correspondientes)
+# Listen 0.0.0.0:631
+# ServerAlias *
+# <Location />
+#   Order allow,deny
+#   Allow @LOCAL
+# </Location>
+
+# Reiniciar servicio
+sudo systemctl restart cups
+
+# Instalar impresora PDF virtual
+sudo apt install cups-pdf -y
+sudo systemctl restart cups
+
+# Ver impresoras instaladas
+lpstat -p -d
+
+# Verificar IP del servidor
+hostname -I
+
+# En la PC cliente, instalar CUPS
+sudo apt install cups -y
+
+# Agregar impresora del servidor (reemplazar IP)
+lpadmin -p PDF_Remoto -E -v ipp://<IP_DEL_SERVIDOR>:631/printers/Virtual_PDF_Printer -m everywhere
+
+# Probar impresión
+echo "Prueba de impresión desde el cliente" > prueba.txt
+lp prueba.txt
+
+# Ver archivo PDF generado
+ls /var/spool/cups-pdf/<usuario>/
