@@ -1,0 +1,112 @@
+# ===============================
+# PRACTICA DE ALTA DISPONIBILIDAD EN DEBIAN (RSYNC + PACEMAKER + KEEPALIVED)
+# ===============================
+
+# --- CONFIGURACIÓN DE RED Y PREPARACIÓN ---
+ip a
+sudo nano /etc/network/interfaces
+sudo systemctl restart networking
+
+# --- ACTUALIZAR SISTEMA ---
+sudo apt -o Acquire::ForceIPv4=true update
+sudo apt upgrade -y
+
+# --- RSYNC (SINCRONIZACIÓN DE CARPETAS) ---
+mkdir -p ~/backup_sync
+cd ~/backup_sync
+touch archivo_{001..100}.txt
+
+# Enviar carpeta a servidor secundario (modifica IP y usuario)
+rsync -avz -e "ssh" ~/backup_sync/ usuario@192.168.50.11:/home/usuario/backup_sync/
+
+# Crear script de sincronización
+nano ~/sync_to_server2.sh
+# Contenido del script:
+# -----------------------------------
+#!/bin/bash
+LOGFILE="/var/log/sync_to_server2.log"
+echo "$(date) - inicio rsync" >> $LOGFILE
+rsync -avz -e "ssh" /home/usuario/backup_sync/ usuario@192.168.50.11:/home/usuario/backup_sync/ >> $LOGFILE 2>&1
+echo "$(date) - fin rsync" >> $LOGFILE
+# -----------------------------------
+
+chmod +x ~/sync_to_server2.sh
+
+# Agregar al crontab (cada minuto)
+crontab -e
+# Añadir línea:
+* * * * * /home/usuario/sync_to_server2.sh
+
+# Verificar logs
+tail -f /var/log/sync_to_server2.log
+
+# --- PACEMAKER + COROSYNC ---
+sudo apt install corosync pacemaker pcs -y
+sudo systemctl enable --now pcsd
+sudo systemctl enable --now pacemaker
+sudo systemctl enable --now corosync
+
+sudo passwd hacluster
+sudo pcs cluster auth server1 server2
+sudo pcs cluster setup --name clusterHA server1 server2
+sudo pcs cluster start --all
+sudo pcs status
+
+# --- KEEPALIVED (IP FLOTANTE + NGINX) ---
+sudo apt install nginx keepalived -y
+
+# Crear página en cada servidor
+echo "<h1>Servidor 1</h1>" | sudo tee /var/www/html/index.html
+
+# Verificar servicio
+sudo systemctl status nginx
+sudo systemctl enable --now nginx
+
+# Crear script de chequeo
+sudo mkdir -p /etc/keepalived
+sudo tee /etc/keepalived/check_nginx.sh > /dev/null <<'EOS'
+#!/bin/bash
+if ! nc -z localhost 8081; then
+    systemctl restart nginx
+    if ! nc -z localhost 8081; then
+        systemctl stop keepalived
+    fi
+fi
+EOS
+
+sudo chmod +x /etc/keepalived/check_nginx.sh
+
+# Crear configuración principal de keepalived
+sudo tee /etc/keepalived/keepalived.conf > /dev/null <<'EOS'
+vrrp_script check_nginx {
+    script "/etc/keepalived/check_nginx.sh"
+    interval 2
+    weight 2
+}
+
+vrrp_instance VI_1 {
+    state MASTER
+    interface eth0
+    virtual_router_id 51
+    priority 101
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass 7myPassw0rd
+    }
+    virtual_ipaddress {
+        192.168.56.200/24
+    }
+    track_script {
+        check_nginx
+    }
+}
+EOS
+
+sudo systemctl enable --now keepalived
+sudo systemctl restart keepalived
+sudo systemctl status keepalived
+
+# --- VERIFICAR IP FLOTANTE ---
+ip a
+ping 192.168.56.200
